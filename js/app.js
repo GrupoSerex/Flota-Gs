@@ -730,7 +730,7 @@ function onPmFallaChange() {
 async function guardarProgramacionMant(e) {
   const btn = (e && e.currentTarget) || event.currentTarget || event.target || document.getElementById('btnGuardarPm') || document.activeElement;
   const originalText = btn.innerHTML;
-  const vId = document.getElementById('pmVeh').value;
+  const vId = document.getElementById('pmVehiculo').value;
   const tipo = document.getElementById('pmTipo').value;
   const fallaId = document.getElementById('pmFalla').value || null;
   const fecha = document.getElementById('pmFecha').value;
