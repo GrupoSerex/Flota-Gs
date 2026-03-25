@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="rgb(30,46,90)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Flota Serex">
+  <title>Flota Grupo Serex</title>
+  <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/2.1.0/uicons-bold-rounded/css/uicons-bold-rounded.css'>
+  <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/2.1.0/uicons-solid-rounded/css/uicons-solid-rounded.css'>
+  <link rel='stylesheet'
+    href='https://cdn-uicons.flaticon.com/2.1.0/uicons-regular-rounded/css/uicons-regular-rounded.css'>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="apple-touch-icon" href="assets/isotipo-02.jpg">
+  <link rel="icon" href="assets/isotipo-02.jpg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <div class="toast" id="toast"></div>
+  <div class="offline-bar" id="offlineBar">⚠️ Sin conexión — Modo offline activo</div>
+
+  <!-- MODAL CERRAR SESIÓN -->
+  <div class="modal-bg" id="mSalir">
+    <div class="modal" style="text-align:center">
+      <div class="modal-handle"></div>
+      <div
+        style="width:64px;height:64px;background:rgba(231,76,60,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <i class="fi fi-sr-sign-out-alt" style="font-size:28px;color:var(--rojo)"></i>
+      </div>
+      <h3 style="margin-bottom:8px">¿Cerrar sesión?</h3>
+      <p style="color:#999;font-size:14px;margin-bottom:24px">Serás desconectado de <b id="mSalirNombre"
+          style="color:var(--azul)"></b>.<br>Podrás volver a ingresar en cualquier momento.</p>
+      <div style="display:grid;gap:10px">
+        <button class="btn rojo full" onclick="cerrarSesion()"><i class="fi fi-rr-sign-out-alt"></i> Sí, cerrar
+          sesión</button>
+        <button class="btn sec full" onclick="cerrarModal('mSalir')">Cancelar, quedarse</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ÉXITO -->
+  <div class="modal-bg" id="mExito">
+    <div class="modal" style="text-align:center">
+      <div class="modal-handle"></div>
+      <i class="fi fi-sr-badge-check" style="font-size:58px;color:var(--verde);display:block;margin-bottom:12px"></i>
+      <h3>¡Excelente Trabajo!</h3>
+      <p style="color:#999;font-size:15px;margin-bottom:20px" id="mExitoMsg">Guardado correctamente.</p>
+      <button class="btn full" onclick="cerrarModal('mExito')">Aceptar</button>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVO USUARIO -->
+  <div class="modal-bg" id="mUsuario">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3>Nuevo Usuario</h3>
+      <div class="input-group"><label>Cédula de Identidad</label><input type="text" id="uCedula"
+          placeholder="Ej: 12345678" inputmode="numeric"></div>
+      <div class="input-group"><label>Nombre Completo</label><input type="text" id="uNombre" placeholder="Juan Pérez">
+      </div>
+      <div class="input-group"><label>PIN (4 a 6 dígitos)</label><input type="password" id="uPin" placeholder="****"
+          maxlength="6" inputmode="numeric"></div>
+      <div class="input-group"><label>Rol</label>
+        <select id="uRol">
+          <option value="conductor">Conductor</option>
+          <option value="mecanico">Mecánico</option>
+          <option value="administrador">Administrador</option>
+        </select>
+      </div>
+      <div class="input-group"><label>Unidad Asignada (opcional)</label><select id="uVehiculo">
+          <option value="">— Sin unidad —</option>
+        </select></div>
+      <div style="display:grid;gap:9px;margin-top:8px">
+        <button class="btn full" onclick="crearUsuario(event)">Crear Usuario</button>
+        <button class="btn sec full" onclick="cerrarModal('mUsuario')">Cancelar</button>
+      </div>
+      <p id="eUsuario" style="color:var(--rojo);font-size:13px;margin-top:10px;display:none"></p>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR USUARIO (con PIN visible/reset) -->
+  <div class="modal-bg" id="mEditUser">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3>Editar Usuario</h3>
+      <input type="hidden" id="euId">
+      <div class="input-group"><label>Nombre Completo</label><input type="text" id="euNombre"></div>
+
+      <!-- PIN ACTUAL -->
+      <div class="input-group">
+        <label>PIN Actual</label>
+        <div class="pin-display-box">
+          <span class="pin-valor" id="euPinMostrado">••••••</span>
+          <button class="btn sec sm" id="btnVerPin" onclick="toggleVerPin()" style="margin-top:0">Ver PIN</button>
+        </div>
+        <div class="pin-nota">El PIN se almacena encriptado. Asigna uno nuevo abajo si el usuario lo olvidó.</div>
+      </div>
+
+      <div class="input-group"><label>Nuevo PIN (dejar vacío para no cambiar)</label><input type="password" id="euPin"
+          placeholder="Nuevo PIN" maxlength="6" inputmode="numeric"></div>
+      <div class="input-group"><label>Rol</label>
+        <select id="euRol">
+          <option value="conductor">Conductor</option>
+          <option value="mecanico">Mecánico</option>
+          <option value="administrador">Administrador</option>
+        </select>
+      </div>
+      <div class="input-group"><label>Unidad Asignada</label><select id="euVehiculo">
+          <option value="">— Sin unidad —</option>
+        </select></div>
+      <div style="display:grid;gap:9px;margin-top:8px">
+        <button class="btn full" onclick="guardarEditUser(event)">Guardar Cambios</button>
+        <button class="btn sec full" onclick="cerrarModal('mEditUser')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVO VEHÍCULO -->
+  <div class="modal-bg" id="mVehiculo">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3>Nuevo Vehículo</h3>
+      <div class="input-group"><label>Código de Unidad</label><input type="text" id="vCode" placeholder="U-001"></div>
+      <div class="input-group"><label>Placa</label><input type="text" id="vPlate" placeholder="ABC-1234"></div>
+      <div class="form-2col">
+        <div class="input-group"><label>Marca</label><input type="text" id="vBrand" placeholder="Toyota"></div>
+        <div class="input-group"><label>Modelo</label><input type="text" id="vModel" placeholder="Hilux"></div>
+      </div>
+      <div class="form-2col">
+        <div class="input-group"><label>Año</label><input type="number" id="vYear" placeholder="2020"></div>
+        <div class="input-group"><label>KM Actual</label><input type="number" id="vKmActual" placeholder="0" min="0">
+        </div>
+      </div>
+      <div class="form-2col">
+        <div class="input-group"><label>Intervalo Mantenimiento (KM)</label><input type="number" id="vInterval"
+            placeholder="5000" min="1"></div>
+        <div class="input-group"><label>KM Último Mantenimiento</label><input type="number" id="vKmLastMaint"
+            placeholder="0" min="0"></div>
+      </div>
+      <div style="display:grid;gap:9px;margin-top:8px">
+        <button class="btn full" onclick="crearVehiculo(event)">Guardar Vehículo</button>
+        <button class="btn sec full" onclick="cerrarModal('mVehiculo')">Cancelar</button>
+      </div>
+      <p id="eVehiculo" style="color:var(--rojo);font-size:13px;margin-top:10px;display:none"></p>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR VEHÍCULO -->
+  <div class="modal-bg" id="mEditVeh">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3>Editar Vehículo</h3>
+      <input type="hidden" id="evId">
+      <div class="input-group"><label>KM Actual</label><input type="number" id="evKm" min="0"></div>
+      <div class="input-group"><label>Intervalo de Mantenimiento (KM)</label><input type="number" id="evInterval"
+          min="1"></div>
+      <div class="input-group"><label>KM del Último Mantenimiento</label><input type="number" id="evLastMaint" min="0">
+      </div>
+      <div style="display:grid;gap:9px;margin-top:8px">
+        <button class="btn full" onclick="actualizarVehiculo(event)">Guardar Cambios</button>
+        <button class="btn sec full" onclick="cerrarModal('mEditVeh')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR KM -->
+  <div class="modal-bg" id="mEditKm">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3>Editar Registro KM</h3>
+      <input type="hidden" id="ekId">
+      <div class="input-group"><label>Kilometraje</label><input type="number" id="ekKm" min="0"></div>
+      <div class="input-group"><label>Notas</label><textarea id="ekNotas"></textarea></div>
+      <div style="display:grid;gap:9px;margin-top:8px">
+        <button class="btn full" onclick="guardarEditKm(event)">Guardar Cambios</button>
+        <button class="btn sec full" onclick="cerrarModal('mEditKm')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR MANTENIMIENTO -->
+  <div class="modal-bg" id="mEditMant">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <h3>Editar Mantenimiento</h3>
+      <input type="hidden" id="emId">
+      <div class="input-group"><label>KM al momento del mantenimiento</label><input type="number" id="emKm" min="0">
+      </div>
+      <div class="input-group"><label>Descripción</label><textarea id="emDesc"></textarea></div>
+      <div style="display:grid;gap:9px;margin-top:8px">
+        <button class="btn full" onclick="guardarEditMant(event)">Guardar Cambios</button>
+        <button class="btn sec full" onclick="cerrarModal('mEditMant')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DETALLE DE ORDEN (Conductor) -->
+  <div class="modal-bg" id="mWoDetalle">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:16px">
+        <div
+          style="width:50px;height:50px;background:rgba(212, 163, 2, 0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
+          <i class="fi fi-sr-calendar-clock" style="font-size:24px;color:#9c6b00"></i>
+        </div>
+        <h3 id="mWoDetalleTitle" style="font-size: 18px;color:#0a0a0a ;margin-bottom:12px">Mantenimiento Programado</h3>
+        <span id="mWoDetalleId"
+          style="font-size:18px;font-weight:700;background:var(--azul);color:#fff;padding:2px 8px;border-radius:10px">---</span>
+      </div>
+
+      <div class="info-card-job" style="margin-bottom:16px;background:var(--gris-fondo);border:none;box-shadow:none">
+        <div class="job-row">
+          <div class="job-item">
+            <div class="job-label" style="color: #0a0a0a;font-size: 16px;font-weight: 600">Fecha de Atención</div>
+            <div class="job-val" id="mWoDetalleFecha">---</div>
+          </div>
+          <div class="job-item">
+            <div class="job-label" style="color: #0a0a0a;font-size: 16px;font-weight: 600;">Tipo</div>
+            <div class="job-val" id="mWoDetalleTipo">---</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>Instrucciones / Notas del Administrador</label>
+        <div id="mWoDetalleDesc"
+          style="font-size:14px;color:#444;background:#fff;padding:12px;border-radius:10px;border:1px solid #eee;min-height:60px;line-height:1.5">
+          ---
+        </div>
+      </div>
+
+      <button class="btn full" onclick="cerrarModal('mWoDetalle')" style="margin-top:10px">Entendido</button>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="header-app hidden" id="headerApp">
+    <div class="header-logo" onclick="ir('seccionDashboard')" style="cursor:pointer" title="Ir al inicio">
+      <img src="assets/isotipo.png" alt="Serex" onerror="this.style.display='none'">
+    </div>
+    <div class="header-user-info" style="display:flex;flex-direction:column;gap:2px">
+      <span class="header-bienvenido">¡Bienvenido!</span>
+      <span class="header-nombre" id="hNombre">---</span>
+      <span class="header-unidad" id="hUnidad">---</span>
+    </div>
+    <!-- CENTER: Smart notifications -->
+    <div class="header-notices" id="headerNotifyCenter"></div>
+    <div class="header-right">
+      <span class="header-rol" id="hRol">---</span>
+      <div class="btn-salir" onclick="abrirModal('mSalir')">
+        <i class="fi fi-rr-sign-out-alt"></i> Salir
+      </div>
+    </div>
+  </header>
+
+  <!-- LOGIN -->
+  <div id="seccionLogin">
+    <div class="logo-login"><img src="assets/isotipo.png" alt="Logo" onerror="this.src='assets/isotipo-02.jpg'"></div>
+    <h2>Flota Grupo Serex</h2>
+    <div class="subtitle">Sistema de Gestión de Flota</div>
+    <div class="input-group">
+      <label>Cédula de Identidad</label>
+      <input type="text" id="loginCedula" placeholder="Ingresa tu cédula" inputmode="numeric">
+    </div>
+    <div class="input-group">
+      <label>PIN de Acceso</label>
+      <input type="password" id="loginPin" placeholder="••••" maxlength="6" inputmode="numeric">
+    </div>
+    <button class="btn-entrar" id="btnEntrar" onclick="iniciarSesion()">Iniciar Sesión</button>
+    <div class="error-msg" id="errorLogin"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="seccionDashboard" class="seccion-app">
+    <div class="dash-content">
+      <!-- CONDUCTOR (Header already shows alerts) -->
+
+      <!-- CONDUCTOR -->
+      <div id="zonaConductor" style="display:none">
+        <div class="barra-card">
+          <div class="barra-header">
+            <span class="barra-header-titulo" id="buLabel">Mi Unidad</span>
+            <span class="barra-header-km" id="buKm">0 KM</span>
+          </div>
+          <div class="barra-wrap">
+            <div class="barra-fill" id="buBarra" style="width:0%"></div>
+          </div>
+          <div class="barra-labels">
+            <span>Último Mant.: <b id="buUltimo">0</b> km</span>
+            <span>Próx. Mant.: <b id="buProximo">0</b> km</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MENÚ -->
+      <span class="seccion-label">Menú Principal</span>
+      <span class="seccion-sublabel" id="dashSubLabel">¿Qué vas a gestionar hoy?</span>
+
+      <!-- CONTENEDORES DE MENÚ SEPARADOS -->
+      <div id="contenedorMenuEstandar" style="display:none;margin-bottom:30px">
+        <div class="menu-grid" id="menuGridEstandar"></div>
+      </div>
+
+      <div id="contenedorMenuAdmin" style="display:none">
+        <h3
+          style="font-size:26px;color:#1a1a1a;margin-bottom:26px;font-family:'Segoe UI Semibold','Segoe UI',sans-serif;font-weight:600;text-align:center">
+          Administración y Control</h3>
+        <div class="menu-grid" id="menuGridAdmin"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KILOMETRAJE -->
+  <div id="seccionKm" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Registro de KM</h2>
+    </div>
+    <div class="dash-content">
+      <div class="km-container">
+        <div class="km-form-card">
+          <input type="file" id="kmFoto" accept="image/*" capture="environment" style="display:none"
+            onchange="verFoto(this)">
+          <div class="input-group">
+            <label>Seleccionar Vehículo</label>
+            <select id="kmVeh" onchange="onKmVehChange()">
+              <option value="">— Selecciona una unidad —</option>
+            </select>
+          </div>
+          <div class="veh-info" id="kmVehInfo">
+            <b id="kmVehInfoTit"></b>
+            <span id="kmVehInfoSub"></span>
+            <div class="barra-wrap" style="margin-top:10px;height:14px">
+              <div class="barra-fill" id="kmVehBarra" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="upload-box" onclick="document.getElementById('kmFoto').click()">
+            <img id="previewImg" src="" alt="">
+            <i class="fi fi-rr-camera-viewfinder"></i>
+            <p>Capturar Foto del Tacómetro<br><small style="color:#ccc">(Opcional — se guardará el link)</small></p>
+          </div>
+          <div class="input-group">
+            <label>Kilometraje Actual</label>
+            <input type="number" id="kmValor" placeholder="Ej: 125400" inputmode="numeric" oninput="validarKmInput()">
+          </div>
+          <div id="kmErrorMsg"
+            style="color:var(--rojo);font-size:13px;font-weight:600;margin-top:-8px;margin-bottom:10px;display:none">
+          </div>
+          <div class="input-group">
+            <label>Notas (opcional)</label>
+            <textarea id="kmNotas" placeholder="Alguna observación..."></textarea>
+          </div>
+          <button id="btnKm" class="btn" onclick="guardarKm(event)"><i class="fi fi-sr-disk"></i> Registrar</button>
+        </div>
+        <div class="hist-box">
+          <div class="hist-titulo"><i class="fi fi-sr-clock-three"></i> Últimos registros</div>
+          <div class="timeline" id="histKmLista">
+            <div style="font-size:13px;color:#ccc">Selecciona un vehículo...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANTENIMIENTO -->
+  <div id="seccionMant" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Registro de Mantenimiento</h2>
+    </div>
+    <div class="dash-content">
+      <!-- WORK ORDER LOOKUP (Modernized) -->
+      <div class="wo-search-card" id="woSearchCard">
+        <h3
+          style="font-size:17px; color:var(--azul); margin-bottom:18px; display:flex; align-items:center; gap:10px; font-family:'Segoe UI Semibold','Segoe UI',sans-serif;">
+          <i class="fi fi-sr-clipboard-list-check"></i> Registro de Mantenimiento
+        </h3>
+
+        <div class="input-group" style="margin-bottom:0">
+          <label style="color:var(--azul); font-weight:700;">Seleccionar Orden de Trabajo Asignada</label>
+          <select id="woSelect" onchange="buscarWorkOrder()"
+            style="height:48px; border-radius:12px; border:2px solid rgba(30,46,90,0.1); font-weight:600;">
+            <option value="">— Abre el listado para comenzar —</option>
+          </select>
+        </div>
+
+        <!-- WO Ticket Info Card -->
+        <div class="wo-info-card" id="woInfoCard">
+          <div class="wo-ticket-header">
+            <span style="font-weight:800; letter-spacing:1px;" id="woIdBadgeText">WO-XXXXXX</span>
+            <span class="wo-tipo-chip info" id="woDetailTipo" style="background:#fff; color:var(--azul);">TIPO</span>
+          </div>
+          <div class="wo-ticket-body">
+            <div class="wo-detail-grid">
+              <div class="wo-detail-item">
+                <div class="wo-detail-label">Unidad / Vehículo</div>
+                <div class="wo-detail-value" id="woDetailVeh">—</div>
+              </div>
+              <div class="wo-detail-item">
+                <div class="wo-detail-label">Fecha Programada</div>
+                <div class="wo-detail-value" id="woDetailFecha">—</div>
+              </div>
+            </div>
+            <div style="margin-top:14px; border-top:1px dashed #eee; padding-top:12px;">
+              <div class="wo-detail-label">Razón / Descripción</div>
+              <div style="font-size:13px; color:#555; line-height:1.4;" id="woDetailDesc">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mant-form-container" id="mantFormContainer" style="display: none">
+
+        <div class="form-card">
+          <h3 style="font-size:16px;"><i class="fi fi-sr-tools"></i> Detalles del Trabajo Realizado</h3>
+          <div class="input-group" style="display:none">
+            <label>Seleccionar Vehículo</label>
+            <select id="mantVeh">
+              <option value="">— Selecciona una unidad —</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label>Actividades Realizadas</label>
+            <div class="mant-multiselect-wrap">
+              <button type="button" class="mant-dropdown-btn" id="mantDropBtn" onclick="toggleMantDropdown()">
+                <span id="mantDropLabel">Selecciona las actividades...</span>
+                <i class="fi fi-rr-angle-down"></i>
+              </button>
+              <div class="mant-dropdown-panel" id="mantDropPanel">
+                <input type="text" class="mant-search-input" id="mantSearchInput" placeholder="🔍 Buscar actividad..."
+                  oninput="filtrarActividades(this.value)">
+                <div id="mantOptionsList"></div>
+              </div>
+            </div>
+            <div class="mant-selected-tags" id="mantSelectedTags"></div>
+          </div>
+
+          <div class="input-group" style="display:none">
+            <label>Clasificación del Mantenimiento</label>
+            <select id="mantTipoRealizado" onchange="onMantRealizadoChange()">
+              <option value="preventivo">Preventivo (Programado / Rutina)</option>
+              <option value="correctivo">Correctivo (Por Falla Reportada)</option>
+            </select>
+          </div>
+
+
+          <div class="input-group" style="margin-top:14px">
+            <label>KM al realizar el mantenimiento</label>
+            <input type="number" id="mantKm" placeholder="Ej: 45320" min="0">
+          </div>
+          <div class="input-group">
+            <label>Descripción / Observaciones del Trabajo Realizado</label>
+            <textarea id="mantDesc" placeholder="Explique detalladamente qué se le hizo a la unidad..."></textarea>
+          </div>
+          <button class="btn" onclick="guardarMant(event)" style="margin-top:20px;"><i class="fi fi-sr-tools"></i>
+            Registrar
+            Mantenimiento</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ÓRDENES DE TRABAJO -->
+  <div id="secWorkOrders" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Órdenes de Trabajo</h2>
+    </div>
+
+    <div class="dash-content">
+      <div class="wo-filter-bar">
+        <div class="wo-filter-group">
+          <label class="wo-filter-label">Fecha</label>
+          <div class="wo-select-wrapper">
+            <select id="woMonthFilter" class="wo-select-minimal" onchange="actualizarListaOrdenesConFiltro()"></select>
+          </div>
+        </div>
+        <div class="wo-filter-group">
+          <label class="wo-filter-label">Unidad</label>
+          <div class="wo-select-wrapper">
+            <select id="woUnitFilter" class="wo-select-minimal" onchange="actualizarListaOrdenesConFiltro()"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabs-bar"
+        style="margin-top:0; background:rgba(30,46,90,0.02); padding:5px; border-radius:16px; border:none;">
+        <button class="tab-btn activo" id="btnTabWoProg" onclick="tab('tWoProg',this);cargarWorkOrders(false)"
+          style="border-radius:12px;">Programadas</button>
+        <button class="tab-btn" id="btnTabWoComp" onclick="tab('tWoComp',this);cargarWorkOrders(true)"
+          style="border-radius:12px;">Completadas</button>
+      </div>
+
+      <div id="tWoProg" class="tab-panel activo">
+        <div id="listaWoProg"></div>
+      </div>
+      <div id="tWoComp" class="tab-panel">
+        <div id="listaWoComp"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="seccionTraza" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Trazabilidad</h2>
+    </div>
+    <div class="dash-content">
+      <div class="form-card" style="padding:16px 18px;margin-bottom:14px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <div class="input-group" style="margin:0;flex:2;min-width:140px">
+            <label>Vehículo</label>
+            <select id="trazaFiltro" onchange="cargarTrazaUnificada()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="input-group" style="margin:0;flex:1;min-width:120px">
+            <label>Mes</label>
+            <select id="trazaMes" onchange="cargarTrazaUnificada()"></select>
+          </div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn sm" id="btnFiltroTodo" onclick="setFiltroTipo('todo')" style="margin-top:0">Todo</button>
+          <button class="btn sec sm" id="btnFiltroKm" onclick="setFiltroTipo('km')" style="margin-top:0">KM</button>
+          <button class="btn sec sm" id="btnFiltroMant" onclick="setFiltroTipo('mant')"
+            style="margin-top:0">Mant.</button>
+          <button class="btn sec sm" id="btnFiltroFalla" onclick="setFiltroTipo('falla')" style="margin-top:0">⚠️
+            Fallas</button>
+        </div>
+      </div>
+      <!-- Leyenda -->
+      <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#777;font-weight:600">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--azul)"></div> KM
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#777;font-weight:600">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--verde)"></div> Mantenimiento
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#777;font-weight:600">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--rojo)"></div> Falla crítica/urgente
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#777;font-weight:600">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--naranja)"></div> Falla moderada/leve
+        </div>
+      </div>
+      <div id="trazaContador" style="font-size:12px;color:#aaa;margin-bottom:10px"></div>
+      <div class="timeline" id="trazaUnificadaLista">
+        <div style="font-size:13px;color:#ccc">Cargando...</div>
+      </div>
+      <div id="trazaVerMas" style="display:none;text-align:center;margin-top:16px">
+        <button class="btn sec sm" onclick="trazaPagina++" style="margin-top:0" id="btnVerMasTraza">Ver más
+          registros</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ADMINISTRACIÓN -->
+  <div id="seccionAdmin" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Administración</h2>
+    </div>
+    <div class="tabs-bar">
+      <button class="tab-btn activo" onclick="tab('tUsers',this)">Usuarios</button>
+      <button class="tab-btn" onclick="tab('tVehs',this)">Vehículos</button>
+      <button class="tab-btn" onclick="tab('tRegKm',this)">Reg. KM</button>
+      <button class="tab-btn" onclick="tab('tRegMant',this)">Reg. Mant.</button>
+      <button class="tab-btn" onclick="tab('tFallas',this)">⚠️ Fallas</button>
+      <button class="tab-btn" onclick="tab('tChecklists',this)">✅ Checklists</button>
+      <button class="tab-btn" onclick="tab('tRep',this)">Reportes</button>
+    </div>
+    <div id="tUsers" class="tab-panel activo">
+      <button class="btn sm" style="margin-bottom:14px"
+        onclick="abrirModal('mUsuario');cargarVehsEnModal('uVehiculo')"><i class="fi fi-rr-user-add"></i> Nuevo
+        Usuario</button>
+      <div class="tabla-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Cédula</th>
+              <th>Rol</th>
+              <th>Unidad</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbUsers"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="tVehs" class="tab-panel">
+      <button class="btn sm" style="margin-bottom:14px" onclick="abrirModal('mVehiculo')"><i
+          class="fi fi-rr-car-alt"></i> Nuevo Vehículo</button>
+      <div class="tabla-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Unidad</th>
+              <th>Placa</th>
+              <th>Vehículo</th>
+              <th>KM Actual</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbVehs"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="tRegKm" class="tab-panel">
+      <div class="input-group"><label>Filtrar por Vehículo</label><select id="adminKmFiltro" onchange="cargarAdminKm()">
+          <option value="">Todos</option>
+        </select></div>
+      <div id="adminKmLista"></div>
+    </div>
+    <div id="tRegMant" class="tab-panel">
+      <div class="input-group"><label>Filtrar por Vehículo</label><select id="adminMantFiltro"
+          onchange="cargarAdminMant()">
+          <option value="">Todos</option>
+        </select></div>
+      <div id="adminMantLista"></div>
+    </div>
+    <div id="tFallas" class="tab-panel">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div class="input-group" style="margin:0;flex:1;min-width:140px"><label>Filtrar por Vehículo</label><select
+            id="adminFallaFiltro" onchange="cargarAdminFallas()">
+            <option value="">Todos</option>
+          </select></div>
+        <div class="input-group" style="margin:0;flex:1;min-width:120px"><label>Estado</label>
+          <select id="adminFallaEstado" onchange="cargarAdminFallas()">
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en_revision">En Revisión</option>
+          </select>
+        </div>
+      </div>
+      <div id="adminFallaLista"></div>
+    </div>
+    <div id="tChecklists" class="tab-panel">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div class="input-group" style="margin:0;flex:2;min-width:130px"><label>Filtrar por Vehículo</label><select
+            id="adminCheckFiltro" onchange="cargarAdminChecklists()">
+            <option value="">Todos</option>
+          </select></div>
+        <div class="input-group" style="margin:0;flex:1;min-width:110px"><label>Mes</label><select id="adminCheckMes"
+            onchange="cargarAdminChecklists()"></select></div>
+      </div>
+      <div id="adminCheckLista"></div>
+    </div>
+    <div id="tRep" class="tab-panel">
+      <div style="display:grid;gap:12px;max-width:460px;margin:0 auto">
+        <button class="btn" onclick="exportKm()"><i class="fi fi-sr-file-spreadsheet"></i> Exportar KM a
+          Excel</button>
+        <button class="btn" onclick="exportMant()"><i class="fi fi-sr-file-spreadsheet"></i> Exportar Mantenimientos a
+          Excel</button>
+        <button class="btn sec" onclick="cargarStats()"><i class="fi fi-sr-chart-histogram"></i> Ver
+          Estadísticas</button>
+      </div>
+      <div id="statsPanel"></div>
+    </div>
+  </div>
+
+  <!-- INSPECCION DE UNIDAD -->
+  <div id="seccionChecklist" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Inspecci&oacute;n de Unidad</h2>
+    </div>
+    <div class="dash-content">
+      <div class="form-card">
+        <h3><i class="fi fi-sr-clipboard-list"></i> Inspecci&oacute;n Pre-Operacional</h3>
+        <div class="input-group" id="checklistVehWrap">
+          <label>Seleccionar Veh&iacute;culo</label>
+          <select id="checkVeh" onchange="autoRellenarKmChecklist()">
+            <option value="">&mdash; Selecciona una unidad &mdash;</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>KM Registrado</label>
+          <input type="number" id="checkKm" placeholder="Se carga autom&aacute;ticamente" readonly
+            style="background:#f5f5f5;color:#888;cursor:not-allowed">
+        </div>
+
+        <div class="check-section">
+          <div class="check-section-title">&#128295; Revisión General</div>
+          <div class="check-row" onclick="toggleCheckRow(this,'nivel_aceite')"><input type="checkbox"
+              id="nivel_aceite"><label for="nivel_aceite">Aceite del motor</label></div>
+          <div class="check-row" onclick="toggleCheckRow(this,'nivel_refrigerante')"><input type="checkbox"
+              id="nivel_refrigerante"><label for="nivel_refrigerante">Refrigerante</label></div>
+          <div class="check-row" onclick="toggleCheckRow(this,'nivel_liquido_frenos')"><input type="checkbox"
+              id="nivel_liquido_frenos"><label for="nivel_liquido_frenos">Líquido de Frenos</label></div>
+          <div class="check-row" onclick="toggleCheckRow(this,'presion_neumaticos')"><input type="checkbox"
+              id="presion_neumaticos"><label for="presion_neumaticos">Presión Neumáticos</label></div>
+          <div class="check-row" onclick="toggleCheckRow(this,'caucho_repuesto')"><input type="checkbox"
+              id="caucho_repuesto"><label for="caucho_repuesto">Caucho Repuesto</label></div>
+          <div class="check-row" onclick="toggleCheckRow(this,'extintor')"><input type="checkbox" id="extintor"><label
+              for="extintor">Extintor</label></div>
+          <div class="check-row" onclick="toggleCheckRow(this,'luces_delanteras')"><input type="checkbox"
+              id="luces_delanteras"><label for="luces_delanteras">Luces Delanteras</label></div>
+          <div class="check-row" onclick="toggleCheckRow(this,'documentos_vehiculo')"><input type="checkbox"
+              id="documentos_vehiculo"><label for="documentos_vehiculo">Documentos al día</label></div>
+        </div>
+
+        <div class="input-group">
+          <label>Observaciones generales (opcional)</label>
+          <textarea id="checkObs" placeholder="Alguna anomal&iacute;a o comentario adicional..."></textarea>
+        </div>
+        <div id="checkProgreso" style="font-size:13px;color:#888;margin-bottom:8px"></div>
+        <button class="btn" onclick="guardarChecklist(event)"><i class="fi fi-sr-clipboard-list"></i> Guardar
+          Inspecci&oacute;n</button>
+      </div>
+    </div>
+  </div>
+  <!-- REPORTE DE FALLA -->
+  <div id="seccionFalla" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Reportar Falla</h2>
+    </div>
+    <div class="dash-content">
+      <div class="form-card">
+        <h3><i class="fi fi-sr-triangle-warning"></i> Nueva Falla Reportada</h3>
+        <div class="input-group" id="fallaVehWrap">
+          <label>Seleccionar Vehículo</label>
+          <select id="fallaVeh" onchange="autoRellenarKmFalla()">
+            <option value="">— Selecciona una unidad —</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Nivel de Importancia</label>
+          <select id="fallaSeverity">
+            <option value="">— Selecciona —</option>
+            <option value="critico">🔴 Crítico — Vehículo fuera de servicio</option>
+            <option value="urgente">🟠 Urgente — Requiere atención inmediata</option>
+            <option value="moderado">🟡 Moderado — Atender pronto</option>
+            <option value="leve">🟢 Leve — Puede esperar revisión programada</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>KM Registrado al reportar</label>
+          <input type="number" id="fallaKm" placeholder="Se carga automáticamente" readonly
+            style="background:#f5f5f5;color:#888;cursor:not-allowed">
+        </div>
+        <div class="input-group">
+          <label>Descripción de la Falla</label>
+          <textarea id="fallaDesc" placeholder="Describe el problema con el mayor detalle posible..."
+            style="min-height:100px"></textarea>
+        </div>
+        <div class="input-group">
+          <label>Foto del Problema (opcional)</label>
+          <input type="file" id="fallaFotoInput" accept="image/*" capture="environment" style="display:none"
+            onchange="prevFallaFoto(this)">
+          <div class="upload-box-sm" onclick="document.getElementById('fallaFotoInput').click()">
+            <img class="preview-sm" id="fallaPreview" src="" alt="">
+            <i class="fi fi-rr-camera"></i>
+            <p>Toca para tomar o elegir foto</p>
+          </div>
+          <div class="upload-progress" id="fallaProgress">
+            <div class="upload-progress-fill" id="fallaProgressFill"></div>
+          </div>
+        </div>
+        <button id="btnEnviarFalla" class="btn rojo full" onclick="guardarFalla(event)"><i
+            class="fi fi-sr-triangle-warning"></i> Enviar
+          Reporte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESTADO DE LA FLOTA (NUEVA PANTALLA ADMIN) -->
+  <div id="seccionEstadoFlota" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Estado de Flota</h2>
+    </div>
+    <div class="dash-content">
+      <div class="flota-menu-card" style="margin-top:0;cursor:default">
+        <div class="flota-menu-card-header"
+          style="justify-content:center;cursor:default;border-bottom:1px solid #eee;padding-bottom:16px;">
+          <div class="flota-menu-card-header-left" style="font-size:18px">
+            <i class="fi fi-sr-car-alt"></i>
+            <span>Vista General de Unidades</span>
+          </div>
+        </div>
+        <div class="flota-chips" id="flotaChips" style="padding-top:16px"></div>
+        <div class="flota-body open" id="flotaBody" style="border-top:none;padding-top:0"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROGRAMAR MANTENIMIENTO (NUEVA PANTALLA ADMIN) -->
+  <div id="seccionProgramarMant" class="subpagina">
+    <div class="subpage-header">
+      <button class="btn-volver" onclick="ir('seccionDashboard')"><i class="fi fi-br-angle-left"></i> Volver</button>
+      <h2>Programar Mantenimiento</h2>
+    </div>
+    <div class="dash-content">
+      <!-- PENDING FAULTS BANNER -->
+      <div class="pm-fallas-banner" id="pmFallasBanner">
+        <div class="pm-fallas-banner-title">
+          <i class="fi fi-sr-engine-warning"></i>
+          <span id="pmFallasBannerTitle">Fallas pendientes por programar</span>
+        </div>
+        <div id="pmFallasBannerList"></div>
+      </div>
+
+      <div class="form-card">
+        <h3><i class="fi fi-sr-calendar-clock"></i> Nueva Orden de Trabajo</h3>
+        <p style="font-size:13px;color:#777;margin-top:-10px;margin-bottom:16px">Asigna fechas de atención a fallas
+          reportadas o mantenimientos preventivos.</p>
+
+        <div class="input-group">
+          <label>Vehículo / Unidad</label>
+          <select id="pmVehiculo" onchange="onPmVehiculoChange()">
+            <option value="">— Selecciona una unidad —</option>
+          </select>
+        </div>
+
+        <div class="input-group" id="pmRazonWrap" style="display:none">
+          <label>Tipo de Mantenimiento</label>
+          <select id="pmTipo" onchange="onPmTipoChange()">
+            <option value="">— Selecciona —</option>
+            <option value="correctivo">Por reporte de falla (Correctivo)</option>
+            <option value="preventivo">Programado (Preventivo)</option>
+          </select>
+        </div>
+
+        <div class="input-group" id="pmFallaWrap" style="display:none">
+          <label>Seleccionar Falla Reportada</label>
+          <select id="pmFalla" onchange="onPmFallaChange()">
+            <option value="">— Selecciona la falla pendiente —</option>
+          </select>
+          <div id="pmFallaDetalle"
+            style="margin-top:10px;padding:12px;background:#f9f9f9;border-radius:var(--radio);font-size:13px;display:none;border:1px solid #eee">
+            <!-- Detalles de falla inyectados aqui -->
+          </div>
+        </div>
+
+        <div class="input-group" id="pmFechaWrap" style="display:none">
+          <label>Fecha Estimada de Atención</label>
+          <input type="date" id="pmFecha"
+            style="height:46px; border-radius:12px; border:2px solid rgba(30,46,90,0.1); font-family:'Segoe UI Semibold','Segoe UI',sans-serif; color:var(--azul);">
+        </div>
+
+        <div class="input-group" id="pmDescWrap" style="display:none">
+          <label>Descripción / Instrucciones Adicionales</label>
+          <textarea id="pmDesc" placeholder="Instrucciones para el taller o recordatorios..."
+            style="min-height:80px"></textarea>
+        </div>
+
+        <button id="btnGuardarPm" class="btn" onclick="guardarProgramacionMant(event)" style="display:none"><i
+            class="fi fi-sr-calendar-plus"></i> Guardar Programación</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer login" id="footer">© 2026 GRUPO SEREX C.A. — TODOS LOS DERECHOS RESERVADOS</div>
+
+  <!-- PLANTILLA PDF (OCULTA) -->
+  <div style="display:none;">
+    <div id="pdfTemplate"
+      style="width: 780px; padding: 12px; background: #fff; font-family: 'Segoe UI', sans-serif; color: #333; box-sizing: border-box; margin: 0 auto; position: relative; top: 0;">
+
+      <!-- HEADER -->
+      <table
+        style="width: 100%; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 12px; border-collapse: collapse; table-layout: fixed;">
+        <tr>
+          <!-- LOGO (Izquierda) -->
+          <td style="width: 50%; vertical-align: middle; text-align: left;">
+            <img src="assets/Logo_Alimentos Serex.png" style="max-height: 28px; width: auto;"
+              alt="Logo Alimentos Serex">
+          </td>
+          <!-- INFO (Derecha) -->
+          <td
+            style="width: 50%; text-align: right; vertical-align: middle; font-size: 10px; font-weight: 600; color: #555; line-height: 1.4;">
+            <div style="color: #1e2e5a; font-size: 12px; font-weight: 800; margin-bottom: 5px;">INFORME TÉCNICO
+              (Interno)
+            </div>
+            <div>Fecha Emisión: <span id="pdfFecha" style="font-weight: 400; color: #333;">---</span></div>
+            <div>Tipo: <span id="pdfTipo" style="font-weight: 400; text-transform: capitalize; color: #333;">---</span>
+            </div>
+            <div>Unidad: <span id="pdfUnidad" style="font-weight: 700; color: #1e2e5a;">---</span></div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- TITULO PRINCIPAL -->
+      <h2
+        style="margin: 0 0 12px 0; color: #1e2e5a; font-size: 17px; text-transform: uppercase; font-family: 'Segoe UI Semibold', 'Segoe UI', sans-serif; letter-spacing: 1px; font-weight: 800; border-left: 5px solid #1e2e5a; padding-left: 12px;">
+        Informe de Mantenimiento</h2>
+
+      <!-- DETALLE VEHICULO & KILOMETRAJE -->
+      <table
+        style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 13px; border: 1px solid #ddd; table-layout: fixed;">
+        <tr>
+          <td
+            style="background: #1e2e5a; color: #fff; padding: 8px 10px; font-weight: 700; border: 1px solid #1e2e5a; width: 35%; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+            Orden de Trabajo (WO)</td>
+          <td
+            style="padding: 8px 10px; border: 1px solid #ddd; width: 65%; font-weight: 700; color: #1e2e5a; font-size: 14px;"
+            id="pdfWoRow">---</td>
+        </tr>
+        <tr>
+          <td style="background: #f8f9fa; padding: 6px 10px; font-weight: 600; border: 1px solid #ddd; color: #555;">
+            Vehículo / Marca / Modelo</td>
+          <td style="padding: 6px 10px; border: 1px solid #ddd;" id="pdfVehDesc">---</td>
+        </tr>
+        <tr>
+          <td style="background: #f8f9fa; padding: 6px 10px; font-weight: 600; border: 1px solid #ddd; color: #555;">
+            Kilometraje al Mantenimiento</td>
+          <td style="padding: 6px 10px; border: 1px solid #ddd;" id="pdfKm">---</td>
+        </tr>
+        <tr>
+          <td style="background: #f8f9fa; padding: 6px 10px; font-weight: 600; border: 1px solid #ddd; color: #555;">
+            Próximo Mantenimiento (KM)</td>
+          <td style="padding: 6px 10px; border: 1px solid #ddd; font-weight: 700; color: #27ae60;" id="pdfProxMant">---
+          </td>
+        </tr>
+        <tr>
+          <td style="background: #f8f9fa; padding: 6px 10px; font-weight: 600; border: 1px solid #ddd; color: #555;">
+            Usuario Asignado</td>
+          <td style="padding: 6px 10px; border: 1px solid #ddd;" id="pdfMecanico">---</td>
+        </tr>
+      </table>
+
+      <!-- REPORTE DE FALLA (Opcional) -->
+      <div id="pdfFallaBox" style="margin-bottom: 12px; display: none;">
+        <h3
+          style="color: #1e2e5a; border-left: 4px solid #e74c3c; padding: 4px 10px; font-size: 14px; margin-bottom: 8px; background: #fff5f5;">
+          1. Reporte de Falla Origen</h3>
+        <p id="pdfFallaReporte"
+          style="font-size: 13px; line-height: 1.5; min-height: 25px; background: #fafafa; padding: 8px 12px; border: 1px solid #eee; border-radius: 4px; margin: 0;">
+          ---
+        </p>
+      </div>
+
+      <!-- ACCIONES DEL MECANICO -->
+      <div style="margin-bottom: 15px;">
+        <h3
+          style="color: #1e2e5a; border-left: 4px solid #1e2e5a; padding: 4px 10px; font-size: 14px; margin-bottom: 8px; background: #f0f4f8;">
+          2. Acciones del Mecánico</h3>
+
+        <div style="margin-bottom: 10px;">
+          <strong
+            style="display: block; font-size: 12px; color: #777; margin-bottom: 6px; text-transform: uppercase;">Servicios
+            y Tareas:</strong>
+          <div id="pdfActividades" style="font-size: 12px; font-weight: 600; color: #1e2e5a;">---</div>
+        </div>
+
+        <div>
+          <strong
+            style="display: block; font-size: 12px; color: #777; margin-bottom: 6px; text-transform: uppercase;">Detalles
+            y Observaciones:</strong>
+          <p id="pdfAccionesMecanico"
+            style="font-size: 13px; line-height: 1.5; min-height: 40px; background: #fafafa; padding: 8px 12px; border: 1px solid #eee; border-radius: 4px; margin: 0;">
+            ---
+          </p>
+        </div>
+      </div>
+
+      <!-- TRAZABILIDAD Y FIRMAS -->
+      <div style="margin-top: 15px;">
+        <h3
+          style="color: #1e2e5a; border-left: 4px solid #1e2e5a; padding: 4px 10px; font-size: 14px; margin-bottom: 8px; background: #f0f4f8;">
+          3. Trazabilidad de Mantenimiento</h3>
+
+        <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+          <tr>
+            <!-- CUADRO MECANICO -->
+            <td style="width: 48%; padding-right: 4%;">
+              <div
+                style="border: 1px solid #ddd; border-top: 3px solid #1e2e5a; border-radius: 4px; overflow: hidden; background: #fafafa;">
+                <div style="background: #f0f4f8; padding: 6px 10px; border-bottom: 1px solid #ddd;">
+                  <strong style="font-size: 11px; color: #1e2e5a; text-transform: uppercase;">Mecánico</strong>
+                </div>
+                <div style="padding: 10px; min-height: 30px;">
+                  <div id="pdfTimelineMantPor" style="font-size: 13px; font-weight: 700; color: #333;">---</div>
+                  <div id="pdfTimelineMantFecha" style="font-size: 11px; color: #777; margin-top: 3px;">---</div>
+                </div>
+              </div>
+            </td>
+
+            <!-- CUADRO VERIFICADO -->
+            <td style="width: 48%;">
+              <div
+                style="border: 1px solid #ddd; border-top: 3px solid #27ae60; border-radius: 4px; overflow: hidden; background: #fafafa;">
+                <div style="background: #f0f8f4; padding: 6px 10px; border-bottom: 1px solid #ddd;">
+                  <strong style="font-size: 11px; color: #2e7d32; text-transform: uppercase;">Verificado por</strong>
+                </div>
+                <div style="padding: 10px; min-height: 30px;">
+                  <div id="pdfTimelineVerifPor" style="font-size: 13px; font-weight: 700; color: #333;">---</div>
+                  <div id="pdfTimelineVerifFecha" style="font-size: 11px; color: #777; margin-top: 3px;">---</div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Falla reportada por (si aplica) se mantiene pequeño abajo -->
+        <div id="pdfTimelineFalla" style="margin-top: 10px; font-size: 11px; color: #888; font-style: italic;">
+          Falla reportada por: <span id="pdfTimelineFallaPor" style="font-weight: 600; color: #555;">---</span>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div
+        style="margin-top: 25px; text-align: center; font-size: 10px; color: #bbb; border-top: 1px solid #eee; padding-top: 10px; letter-spacing: 0.5px;">
+        GRUPO SEREX C.A. - INFORME TÉCNICO DE MANTENIMIENTO - TODOS LOS DERECHOS RESERVADOS
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+
+</html>
